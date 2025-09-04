@@ -27,6 +27,7 @@ body {
   background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 50%, #c7d2fe 100%);
   position: relative;
   overflow: hidden;
+  padding: 1rem;
 }
 
 .background-decorations {
@@ -78,18 +79,6 @@ body {
   z-index: 10;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  border-radius: 9999px;
-  padding: 0.75rem 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
 
 .badge-dot {
   width: 0.75rem;
@@ -700,6 +689,7 @@ body {
   line-height: 1.6;
   margin-bottom: 1rem;
   display: -webkit-box;
+  text-align: left;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -990,3 +980,26 @@ body {
 .mic-button { padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #e5e7eb; background: #ffffff; color: #374151; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .mic-button:hover { background: #f9fafb; }
 .mic-button.recording { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+
+/* Badge group + streak */
+.badge-group { display: flex; align-items: center; gap: 0.75rem; justify-content: center; margin-bottom: 1rem; }
+
+/* Make streak badge visually match the AI badge */
+.streak-badge, .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  border-radius: 9999px;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  line-height: 1;
+}
+.streak-fire { font-size: 1rem; }
+.streak-count { font-size: 0.875rem; font-weight: 700; color: #374151; }
+.streak-label { font-size: 0.875rem; font-weight: 600; color: #374151; }
+
+/* Ensure matching heights for badges */
+.badge, .streak-badge { align-items: center; }

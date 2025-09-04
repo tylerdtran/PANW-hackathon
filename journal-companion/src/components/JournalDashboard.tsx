@@ -152,7 +152,7 @@ export default function JournalDashboard({ entries }: JournalDashboardProps) {
             </div>
             <div>
               <p className="stat-value purple">{stats.avgWordsPerEntry}</p>
-              <p className="stat-label purple">Avg per Entry</p>
+              <p className="stat-label purple">Avg Words per Entry</p>
             </div>
           </div>
         </div>

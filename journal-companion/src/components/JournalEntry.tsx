@@ -160,8 +160,8 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
     if (!raw) return;
     setIsComposing(true);
     try {
-      const { composedText, evaluation } = await composeFromSpokenTranscript(raw);
-      const appended = (currentEntry ? currentEntry + '\n\n' : '') + composedText + '\n\n' + '— Reflection: ' + evaluation;
+      const { composedText } = await composeFromSpokenTranscript(raw);
+      const appended = (currentEntry ? currentEntry + '\n\n' : '') + composedText;
       setCurrentEntry(appended);
     } catch (e) {
       console.error(e);

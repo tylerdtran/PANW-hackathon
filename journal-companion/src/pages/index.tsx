@@ -6,6 +6,44 @@ import InsightSummary from '../components/InsightSummary';
 import { JournalEntry as JournalEntryType } from '../types/journal';
 import { analyzeJournalEntry } from '../lib/gemini';
 
+function getDateKey(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+
+function calculateCurrentStreak(entries: JournalEntryType[]): number {
+  if (!entries || entries.length === 0) return 0;
+  const uniqueDays = Array.from(new Set(entries.map(e => getDateKey(e.timestamp)))).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  let streak = 0;
+  let cursor = new Date();
+  // normalize cursor to current day key
+  let cursorKey = getDateKey(cursor.toISOString());
+  for (let i = 0; i < uniqueDays.length; i++) {
+    if (uniqueDays[i] === cursorKey) {
+      streak += 1;
+      // move cursor to previous day
+      cursor.setDate(cursor.getDate() - 1);
+      cursorKey = getDateKey(cursor.toISOString());
+    } else {
+      // If the most recent entry is not today, check if it is yesterday to allow streak starting yesterday
+      if (streak === 0) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yKey = getDateKey(yesterday.toISOString());
+        if (uniqueDays[0] === yKey) {
+          // start streak from yesterday
+          cursor = yesterday;
+          cursorKey = yKey;
+          i = -1; // restart loop with adjusted cursor
+          continue;
+        }
+      }
+      break;
+    }
+  }
+  return streak;
+}
+
 export default function Home() {
   const [entries, setEntries] = useState<JournalEntryType[]>([]);
   const [currentEntry, setCurrentEntry] = useState<string>('');
@@ -15,6 +53,8 @@ export default function Home() {
   const [modalAnalysis, setModalAnalysis] = useState<string>('');
   const [modalSuggestions, setModalSuggestions] = useState<string[]>([]);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
+
+  const currentStreak = calculateCurrentStreak(entries);
 
   useEffect(() => {
     // Load entries from localStorage on component mount
@@ -149,9 +189,16 @@ export default function Home() {
       <main className="container">
         {/* Header */}
         <header className="header">
-          <div className="badge">
-            <div className="badge-dot"></div>
-            <span className="badge-text">AI-Powered Journaling</span>
+          <div className="badge-group">
+            <div className="badge">
+              <div className="badge-dot"></div>
+              <span className="badge-text">AI-Powered Journaling</span>
+            </div>
+            <div className="streak-badge" title="Current streak">
+              <span className="streak-fire">🔥</span>
+              <span className="streak-count">{currentStreak}</span>
+              <span className="streak-label">day{currentStreak === 1 ? '' : 's'} streak</span>
+            </div>
           </div>
           
           <h1 className="title">
