@@ -9,6 +9,8 @@ interface InsightSummaryProps {
 
 export default function InsightSummary({ entries }: InsightSummaryProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
+  const [showAllThemes, setShowAllThemes] = useState(false);
+  const [selectedHighlight, setSelectedHighlight] = useState<JournalEntry | null>(null);
 
   const insights = useMemo(() => {
     if (entries.length === 0) return null;
@@ -36,10 +38,11 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
       });
     });
 
-    const topThemes = Object.entries(themeFrequency)
+    const sortedThemes = Object.entries(themeFrequency)
       .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([theme]) => theme);
+      .map(([theme, count]) => ({ theme, count }));
+
+    const topThemes = sortedThemes.slice(0, 3).map(t => t.theme);
 
     // Analyze sentiment trends
     const sentimentCounts = periodEntries.reduce((acc, entry) => {
@@ -53,7 +56,7 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
     // Generate insights based on patterns
     const insights: string[] = [];
     
-    if (sentimentCounts.positive > sentimentCounts.negative) {
+    if ((sentimentCounts.positive || 0) > (sentimentCounts.negative || 0)) {
       insights.push("You've been experiencing more positive emotions this period");
     }
     
@@ -68,7 +71,7 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
     // Generate recommendations
     const recommendations: string[] = [];
     
-    if (sentimentCounts.negative > 0) {
+    if ((sentimentCounts.negative || 0) > 0) {
       recommendations.push("Consider practicing self-compassion and mindfulness");
     }
     
@@ -80,59 +83,53 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
       recommendations.push("Aim to write more consistently to gain deeper insights");
     }
 
+    const positiveEntries = periodEntries
+      .filter(entry => entry.sentiment === 'positive')
+      .slice(0, 4);
+
     return {
       period: selectedPeriod === 'week' ? 'this week' : 'this month',
       totalEntries: periodEntries.length,
+      sortedThemes,
       topThemes,
       dominantSentiment,
       insights,
       recommendations,
-      highlights: periodEntries
-        .filter(entry => entry.sentiment === 'positive')
-        .slice(0, 2)
-        .map(entry => entry.content.substring(0, 100) + '...')
+      highlights: positiveEntries
     };
   }, [entries, selectedPeriod]);
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Lightbulb className="w-12 h-12 text-gray-400" />
+      <div className="insights-empty">
+        <div className="insights-empty-icon">
+          <Lightbulb size={48} />
         </div>
-        <h3 className="text-2xl font-bold text-gray-600 mb-3">No insights yet</h3>
-        <p className="text-gray-500 text-lg">Start writing to discover meaningful patterns in your thoughts and feelings!</p>
+        <h3 className="insights-empty-title">No insights yet</h3>
+        <p className="insights-empty-text">Start writing to discover meaningful patterns in your thoughts and feelings!</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-10">
+    <div className="insights">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="insights-header">
         <div>
-          <h2 className="text-4xl font-bold text-gray-800 mb-3">Your Personal Insights</h2>
-          <p className="text-xl text-gray-600">Discover patterns and growth opportunities in your journaling journey</p>
+          <h2 className="insights-title">Your Personal Insights</h2>
+          <p className="insights-subtitle">Discover patterns and growth opportunities in your journaling journey</p>
         </div>
         
-        <div className="flex gap-2 bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-white/20">
+        <div className="period-toggle">
           <button
             onClick={() => setSelectedPeriod('week')}
-            className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-              selectedPeriod === 'week'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
-            }`}
+            className={`period-button ${selectedPeriod === 'week' ? 'active' : ''}`}
           >
             This Week
           </button>
           <button
             onClick={() => setSelectedPeriod('month')}
-            className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-              selectedPeriod === 'month'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            className={`period-button disabled`}
             disabled
             title="Coming soon"
           >
@@ -144,71 +141,70 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
       {insights ? (
         <>
           {/* Summary Card */}
-          <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 rounded-3xl p-10 border border-blue-200 shadow-xl">
-            <div className="flex items-start gap-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Lightbulb className="w-8 h-8 text-white" />
+          <div className="insights-summary">
+            <div className="insights-summary-content">
+              <div className="insights-summary-icon">
+                <Lightbulb size={32} />
               </div>
-              <div className="flex-1">
-                <h3 className="text-3xl font-bold text-blue-800 mb-4">
+              <div className="insights-summary-text">
+                <h3 className="insights-summary-title">
                   {selectedPeriod === 'week' ? 'Weekly' : 'Monthly'} Reflection Summary
                 </h3>
-                <p className="text-blue-700 text-xl leading-relaxed">
+                <p className="insights-summary-desc">
                   Over {insights.period}, you&apos;ve written {insights.totalEntries} journal entries. 
-                  Your reflections have been primarily {insights.dominantSentiment}, with themes around{' '}
-                  {insights.topThemes.join(', ')} being most prominent.
+                  Your reflections have been primarily {insights.dominantSentiment}, with themes around {insights.topThemes.join(', ')} being most prominent.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Key Insights */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-gray-200 shadow-xl">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-white" />
+          {/* Key Insights and Growth */}
+          <div className="insights-grid">
+            <div className="insights-card">
+              <h3 className="insights-card-title">
+                <div className="insights-card-badge badge-green">
+                  <TrendingUp size={20} />
                 </div>
                 Key Patterns
               </h3>
-              <ul className="space-y-4">
+              <ul className="insights-list">
                 {insights.insights.map((insight, index) => (
-                  <li key={index} className="flex items-start gap-4">
-                    <div className="w-3 h-3 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <span className="text-gray-700 text-lg leading-relaxed">{insight}</span>
+                  <li key={index} className="insights-list-item">
+                    <div className="insights-dot dot-green"></div>
+                    <span className="insights-list-text">{insight}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-gray-200 shadow-xl">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
+            <div className="insights-card">
+              <h3 className="insights-card-title">
+                <div className="insights-card-badge badge-purple">
+                  <Sparkles size={20} />
                 </div>
                 Growth Opportunities
               </h3>
-              <ul className="space-y-4">
+              <ul className="insights-list">
                 {insights.recommendations.map((rec, index) => (
-                  <li key={index} className="flex items-start gap-4">
-                    <div className="w-3 h-3 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <span className="text-gray-700 text-lg leading-relaxed">{rec}</span>
+                  <li key={index} className="insights-list-item">
+                    <div className="insights-dot dot-purple"></div>
+                    <span className="insights-list-text">{rec}</span>
                   </li>
                 ))}
               </ul>
             </div>
           </div>
 
-          {/* Theme Analysis */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-gray-200 shadow-xl">
-            <h3 className="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
+          {/* Theme Analysis (expanded) */}
+          <div className="insights-card">
+            <h3 className="insights-card-title">
+              <div className="insights-card-badge badge-indigo">
+                <Brain size={20} />
               </div>
               Theme Analysis
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {insights.topThemes.map((theme) => {
+            <div className="themes-grid">
+              {(showAllThemes ? insights.sortedThemes : insights.sortedThemes.slice(0, 6)).map(({ theme, count }) => {
                 const icons = {
                   work: Briefcase,
                   relationship: Users,
@@ -220,54 +216,85 @@ export default function InsightSummary({ entries }: InsightSummaryProps) {
                 const IconComponent = icons[theme as keyof typeof icons] || Lightbulb;
                 
                 return (
-                  <div key={theme} className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200 hover:border-blue-300 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <IconComponent className="w-8 h-8 text-white" />
+                  <div key={theme} className="theme-card">
+                    <div className="theme-card-icon">
+                      <IconComponent size={28} />
                     </div>
-                    <p className="font-bold text-gray-800 text-lg capitalize mb-2">{theme}</p>
-                    <p className="text-gray-500">Prominent theme</p>
+                    <p className="theme-card-title">{theme}</p>
+                    <p className="theme-badge">{count} mentions</p>
                   </div>
                 );
               })}
             </div>
+            {insights.sortedThemes.length > 6 && (
+              <div className="themes-toggle">
+                <button className="themes-toggle-btn" onClick={() => setShowAllThemes(v => !v)}>
+                  {showAllThemes ? 'Show less' : 'Show all'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Positive Highlights */}
           {insights.highlights.length > 0 && (
-            <div className="bg-gradient-to-r from-emerald-50 to-green-100 rounded-3xl p-8 border border-emerald-200 shadow-xl">
-              <h3 className="text-2xl font-bold text-emerald-800 mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-white" />
+            <div className="highlights">
+              <h3 className="highlights-title">
+                <div className="insights-card-badge badge-emerald">
+                  <Heart size={20} />
                 </div>
                 Positive Moments to Remember
               </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                {insights.highlights.map((highlight, index) => (
-                  <div key={index} className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200 hover:border-emerald-300 transition-all duration-300 hover:shadow-lg">
-                    <p className="text-gray-700 italic text-lg leading-relaxed">&ldquo;{highlight}&rdquo;</p>
-                  </div>
+              <div className="highlights-grid">
+                {insights.highlights.map((entry, index) => (
+                  <button key={index} className="highlight-item highlight-button" onClick={() => setSelectedHighlight(entry)}>
+                    <p className="highlight-text">“{entry.content.substring(0, 140)}{entry.content.length > 140 ? '…' : ''}”</p>
+                  </button>
                 ))}
               </div>
             </div>
           )}
         </>
       ) : (
-        <div className="text-center py-16">
-          <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Calendar className="w-12 h-12 text-gray-400" />
+        <div className="insights-empty">
+          <div className="insights-empty-icon">
+            <Calendar size={48} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-600 mb-3">No entries in this period</h3>
-          <p className="text-gray-500 text-lg">Try writing a few entries to see your insights here!</p>
+          <h3 className="insights-empty-title">No entries in this period</h3>
+          <p className="insights-empty-text">Try writing a few entries to see your insights here!</p>
+        </div>
+      )}
+
+      {/* Modal for Positive Highlights */}
+      {selectedHighlight && (
+        <div className="modal-overlay" onClick={() => setSelectedHighlight(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Positive Moment</h3>
+              <button className="modal-close" onClick={() => setSelectedHighlight(null)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-meta">
+              <span className={`sentiment-dot ${selectedHighlight.sentiment}`}></span>
+              <span className="modal-date">{new Date(selectedHighlight.timestamp).toLocaleString()}</span>
+              <div className="modal-themes">
+                {selectedHighlight.themes.map((theme) => (
+                  <span key={theme} className="theme-tag">{theme}</span>
+                ))}
+              </div>
+            </div>
+            <div className="modal-content">
+              <pre className="modal-text">{selectedHighlight.content}</pre>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Encouragement */}
-      <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-rose-100 rounded-3xl p-8 border border-purple-200 shadow-xl text-center">
-        <div className="inline-flex items-center gap-3 bg-white/80 rounded-2xl px-6 py-3 mb-4">
-          <span className="text-2xl">💜</span>
-          <span className="text-purple-800 font-semibold">Keep Growing</span>
+      <div className="encouragement insights-encouragement">
+        <div className="encouragement-badge">
+          <span className="encouragement-emoji">💜</span>
+          <span className="encouragement-title">Keep Growing</span>
         </div>
-        <p className="text-purple-800 text-xl font-medium leading-relaxed">
+        <p className="encouragement-text">
           Every entry you write helps you understand yourself better. 
           Your journal is a safe space for reflection and growth.
         </p>

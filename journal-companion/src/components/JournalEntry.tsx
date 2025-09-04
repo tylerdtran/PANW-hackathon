@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   PenTool, 
   Sparkles, 
@@ -11,7 +11,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { PromptSuggestion, JournalEntry as JournalEntryType } from '../types/journal';
-import { generateDynamicPrompts } from '../lib/gemini';
+import { generateDynamicPrompts, composeFromSpokenTranscript } from '../lib/gemini';
 
 interface JournalEntryProps {
   onSave: (content: string) => void;
@@ -52,6 +52,10 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
   const [wordCount, setWordCount] = useState(0);
   const [prompts, setPrompts] = useState<PromptSuggestion[]>([]);
   const [promptsLoading, setPromptsLoading] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
 
   useEffect(() => {
     setWordCount(currentEntry.trim().split(/\s+/).filter(word => word.length > 0).length);
@@ -118,13 +122,52 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
     loadDynamicPrompts();
   };
 
-  // Safe icon renderer with fallback
-  const renderIcon = (category: string) => {
-    const IconComponent = categoryIcons[category as keyof typeof categoryIcons];
-    if (IconComponent) {
-      return <IconComponent size={24} />;
+  // Speech-to-text via Web Speech API
+  const startRecording = () => {
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition not supported in this browser. Try Chrome.');
+      return;
     }
-    return <FallbackIcon />;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    transcriptRef.current = '';
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) transcriptRef.current += transcript + ' ';
+        else interim += transcript;
+      }
+    };
+    recognition.onerror = () => { setIsRecording(false); recognition.stop(); };
+    recognition.onend = () => setIsRecording(false);
+
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+    recognition.start();
+  };
+
+  const stopRecordingAndCompose = async () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+    const raw = transcriptRef.current.trim();
+    if (!raw) return;
+    setIsComposing(true);
+    try {
+      const { composedText, evaluation } = await composeFromSpokenTranscript(raw);
+      const appended = (currentEntry ? currentEntry + '\n\n' : '') + composedText + '\n\n' + '— Reflection: ' + evaluation;
+      setCurrentEntry(appended);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsComposing(false);
+    }
   };
 
   return (
@@ -178,6 +221,7 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
                       {renderIcon(prompt.category)}
                     </div>
                     <div className="prompt-text">
+                      <span className="prompt-badge">{prompt.category}</span>
                       <p className="prompt-question">{prompt.text}</p>
                       <p className="prompt-context">{prompt.context}</p>
                     </div>
@@ -222,23 +266,33 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
             <span>to save</span>
           </div>
           
-          <button
-            onClick={handleSave}
-            disabled={!currentEntry.trim() || isLoading}
-            className="save-button"
-          >
-            {isLoading ? (
-              <>
-                <div className="loading-spinner"></div>
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <span>Save Entry</span>
-                <div className="save-button-dot"></div>
-              </>
-            )}
-          </button>
+          <div className="writing-actions">
+            <button
+              onClick={isRecording ? stopRecordingAndCompose : startRecording}
+              className={`mic-button ${isRecording ? 'recording' : ''}`}
+              disabled={isComposing}
+              aria-pressed={isRecording}
+            >
+              {isRecording ? '⏹ Stop & Compose' : '🎤 Speak to Journal'}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!currentEntry.trim() || isLoading}
+              className="save-button"
+            >
+              {isLoading ? (
+                <>
+                  <div className="loading-spinner"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <span>Save Entry</span>
+                  <div className="save-button-dot"></div>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -254,4 +308,20 @@ export default function JournalEntry({ onSave, isLoading, currentEntry, setCurre
       </div>
     </div>
   );
+}
+
+// Safe icon renderer with fallback
+function renderIcon(category: string) {
+  const map: any = {
+    gratitude: Heart,
+    growth: Brain,
+    relationship: Users,
+    reflection: PenTool,
+    work: Briefcase,
+    creativity: Palette,
+    health: Activity,
+    stress: BookOpen
+  };
+  const Icon = map[category];
+  return Icon ? <Icon size={24} /> : <FallbackIcon />;
 }

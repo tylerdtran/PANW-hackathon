@@ -11,6 +11,10 @@ export default function Home() {
   const [currentEntry, setCurrentEntry] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'write' | 'dashboard' | 'insights'>('write');
+  const [selectedEntry, setSelectedEntry] = useState<JournalEntryType | null>(null);
+  const [modalAnalysis, setModalAnalysis] = useState<string>('');
+  const [modalSuggestions, setModalSuggestions] = useState<string[]>([]);
+  const [modalLoading, setModalLoading] = useState<boolean>(false);
 
   useEffect(() => {
     // Load entries from localStorage on component mount
@@ -69,6 +73,62 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const deriveSuggestions = (entry: JournalEntryType, insightsText: string): string[] => {
+    const tips: string[] = [];
+    const text = `${entry.content} ${insightsText}`.toLowerCase();
+    if (entry.sentiment === 'negative' || text.includes('stress') || text.includes('anxiety')) {
+      tips.push('Try a 5-minute breathing break to ground yourself.');
+      tips.push('Write down one small thing that went okay today.');
+    }
+    if (entry.sentiment === 'positive' || text.includes('grateful') || text.includes('gratitude')) {
+      tips.push('Capture a gratitude note to revisit on tougher days.');
+    }
+    if (entry.themes.includes('work')) {
+      tips.push('Set one clear boundary for work-life balance tomorrow.');
+    }
+    if (entry.themes.includes('family') || text.includes('family')) {
+      tips.push('Plan a short check-in or kind message to someone you care about.');
+    }
+    if (tips.length === 0) {
+      tips.push('Note one intention for tomorrow and one thing you appreciate about today.');
+    }
+    return Array.from(new Set(tips)).slice(0, 3);
+  };
+
+  const openEntryModal = async (entry: JournalEntryType) => {
+    setSelectedEntry(entry);
+    setModalAnalysis(entry.aiInsights || '');
+    setModalSuggestions([]);
+    setModalLoading(false);
+    if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
+
+    // If no cached AI insight on the entry, fetch it now
+    if (!entry.aiInsights) {
+      try {
+        setModalLoading(true);
+        const analysis = await analyzeJournalEntry(entry.content);
+        setModalAnalysis(analysis.insights);
+        setModalSuggestions(deriveSuggestions(entry, analysis.insights));
+      } catch (e) {
+        console.error('Modal AI analysis failed:', e);
+        setModalAnalysis('Thank you for reflecting. Consider noting one small win and one gentle next step.');
+        setModalSuggestions(deriveSuggestions(entry, ''));
+      } finally {
+        setModalLoading(false);
+      }
+    } else {
+      setModalSuggestions(deriveSuggestions(entry, entry.aiInsights));
+    }
+  };
+
+  const closeEntryModal = () => {
+    setSelectedEntry(null);
+    setModalAnalysis('');
+    setModalSuggestions([]);
+    setModalLoading(false);
+    if (typeof document !== 'undefined') document.body.style.overflow = '';
   };
 
   return (
@@ -149,7 +209,7 @@ export default function Home() {
             </h2>
             <div className="recent-grid">
               {entries.slice(0, 3).map((entry) => (
-                <div key={entry.id} className="entry-card">
+                <button key={entry.id} className="entry-card entry-card-button" onClick={() => openEntryModal(entry)}>
                   <div className="entry-sentiment">
                     <div className={`sentiment-dot ${entry.sentiment}`}></div>
                     <span className="sentiment-text">{entry.sentiment}</span>
@@ -167,12 +227,56 @@ export default function Home() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         )}
       </main>
+
+      {/* Entry Modal */}
+      {selectedEntry && (
+        <div className="modal-overlay" onClick={closeEntryModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Journal Entry</h3>
+              <button className="modal-close" onClick={closeEntryModal} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-meta">
+              <span className={`sentiment-dot ${selectedEntry.sentiment}`}></span>
+              <span className="modal-date">{new Date(selectedEntry.timestamp).toLocaleString()}</span>
+              <div className="modal-themes">
+                {selectedEntry.themes.map((theme) => (
+                  <span key={theme} className="theme-tag">{theme}</span>
+                ))}
+              </div>
+            </div>
+            <div className="modal-content">
+              <pre className="modal-text">{selectedEntry.content}</pre>
+
+              <div className="modal-section">
+                <h4 className="modal-section-title">Gentle Reflection</h4>
+                {modalLoading ? (
+                  <p className="modal-section-text">Analyzing your entry...</p>
+                ) : (
+                  <p className="modal-section-text">{modalAnalysis || 'Thank you for reflecting. Consider noting one small win and one gentle next step.'}</p>
+                )}
+              </div>
+
+              {modalSuggestions.length > 0 && (
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Avenues for Positive Improvement</h4>
+                  <ul className="modal-suggestions">
+                    {modalSuggestions.map((s, i) => (
+                      <li key={i} className="modal-suggestion-item">{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
