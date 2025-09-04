@@ -27,6 +27,7 @@ It helps overcome “blank page” anxiety with dynamic prompts, performs privat
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
 - [License](#license)
+- [Ethical Considerations, Security, and Limitations](#ethical-considerations-security-and-limitations)
 
 ## Demo Highlights
 - Modern, glassmorphism‑inspired UI with regular CSS classes (no Tailwind required).
@@ -175,7 +176,7 @@ Code: `src/components/InsightSummary.tsx`, `src/pages/api/insights.ts`
 
 ### Speech‑to‑Text Journaling
 - Click “🎤 Speak to Journal” to start recording with the browser Web Speech API
-- Stop to send the transcript to `/api/compose` which returns a coherent entry (first‑person) and a short evaluation (not auto‑appended; the composed text is inserted)
+- Stop to send the transcript to `/api/compose` which returns a coherent entry (first‑person)
 
 Code: `JournalEntry.tsx` (recording flow), `lib/gemini.ts` (compose helper), `api/compose.ts`
 
@@ -222,8 +223,28 @@ MIT
 
 ---
 
-### How This Addresses the Prompt
-- Blank page anxiety: Context‑aware dynamic prompts + speech‑to‑text makes starting easy
-- Insightfulness: Weekly summaries and dashboards visualize patterns and emotions
-- Privacy & Trust: Entries live in localStorage; API key remains server‑side; fallbacks reduce dependence on the network
-- AI Application: Uses Gemini for prompt generation and analysis, with careful, empathetic tone throughout the UI and copy
+## Ethical Considerations, Security, and Limitations
+
+### Ethical Considerations
+- Non‑judgmental language: Prompts and insights are written to be supportive, not diagnostic. The app avoids medical claims and does not replace professional care.
+- User autonomy: Users choose when to save, analyze, or speak entries; the app does not auto‑share or gamify in coercive ways. The streak is encouraging but optional.
+- Sensitive content: Journals may include sensitive topics. UI copy avoids triggering or prescriptive language and emphasizes self‑compassion.
+- Bias and model behavior: Gemini outputs may reflect biases present in training data. We constrain prompts to be empathetic and ask the model for gentle, non‑clinical language.
+
+### Security
+- API key safety: The Gemini API key is kept server‑side in Next.js API routes; it is never exposed to the client.
+- Data residency: Entries are stored locally in the user’s browser via `localStorage` and are not transmitted to any external database by default.
+- Transport: Requests to API routes travel over HTTPS in production (via your hosting provider). No third‑party analytics are included by default.
+- Surface area: Serverless functions are minimal, validating inputs and returning JSON only. Consider adding rate limiting and request size limits in production.
+
+### Privacy
+- Default private by design: All content remains on‑device unless the user explicitly requests an AI analysis or composition (which sends only the specific text to your own API route for processing by Gemini).
+- Opt‑in: Speech‑to‑text uses the browser’s Web Speech API. Audio is not uploaded by this app; only the transcript is used, and only if the user stops recording and confirms.
+- No tracking: There is no built‑in telemetry or tracking. If added, disclose and allow opt‑out.
+
+### Limitations
+- Local storage only: Data can be cleared by the browser (e.g., cache clears, private mode). Add export/import or syncing for resilience.
+- Model fallibility: Sentiment, themes, and summaries may be incorrect or simplistic. The UI frames insights as suggestions, not facts.
+- Connectivity: AI features require network access to Gemini. Fallback heuristics are basic and less accurate.
+- Browser support: Speech recognition is best in Chrome (Web Speech API). Other browsers may not support it.
+- Not clinical: This is not a medical tool or crisis resource; include help links and disclaimers if deploying to end users.
